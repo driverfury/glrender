@@ -54,7 +54,7 @@ main()
 
         glr_begin(&renderer);
 
-        glr_clear(&renderer, 0.0f, 0.0f, 0.0f, 1.0f);
+        glr_clear(&renderer, 0.1f, 0.1f, 0.2f, 1.0f);
 
         /* draw the texture in the middle of the screen */
         glr_vertex quad1[4] = {
