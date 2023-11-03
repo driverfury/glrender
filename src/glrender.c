@@ -7,14 +7,6 @@ void
 glr_init(glr_renderer *renderer, unsigned int flags)
 {
     renderer->vertexes_count = 0;
-    renderer->textures_count = 0;
-
-    for(unsigned int texture_index = 0;
-        texture_index < GLR_MAX_TEXTURES;
-        ++texture_index)
-    {
-        renderer->textures[texture_index].used = 0;
-    }
 
     renderer->flags = 0;
 
@@ -41,8 +33,25 @@ glr_init(glr_renderer *renderer, unsigned int flags)
 
     glEnable(GL_TEXTURE_2D);
 
+    int projection_matrix_is_zero = 1;
+    for(unsigned int i = 0; i < 4*4; ++i)
+    {
+        if(renderer->projection[i] != 0.0f)
+        {
+            projection_matrix_is_zero = 0;
+            break;
+        }
+    }
+
     glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
+    if(projection_matrix_is_zero)
+    {
+        glLoadIdentity();
+    }
+    else
+    {
+        glLoadMatrixf(renderer->projection);
+    }
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -51,19 +60,6 @@ glr_init(glr_renderer *renderer, unsigned int flags)
 void
 glr_begin(glr_renderer *renderer)
 {
-    for(unsigned int texture_index = 0;
-        texture_index < GLR_MAX_TEXTURES;
-        ++texture_index)
-    {
-        if( renderer->textures[texture_index].used &&
-            renderer->textures[texture_index].to_destroy)
-        {
-            glDeleteTextures(1, &renderer->textures[texture_index].gl_texture);
-            renderer->textures[texture_index].used = 0;
-            renderer->textures_count -= 1;
-        }
-    }
-
     renderer->vertexes_count = 0;
 }
 
@@ -75,20 +71,16 @@ glr_end(glr_renderer *renderer)
         glClear(GL_DEPTH_BUFFER_BIT);
     }
 
+    glr_texture bound_texture = 0;
+    glBindTexture(GL_TEXTURE_2D, bound_texture);
     for(unsigned int prim_index = 0;
         prim_index < renderer->vertexes_count / GLR_PRIMITIVE_NUM_VERTEXES;
         ++prim_index)
     {
-        glr_texture *texture = 0;
-        if(renderer->vertexes[prim_index*GLR_PRIMITIVE_NUM_VERTEXES].texture)
+        if(bound_texture != renderer->vertexes[prim_index*GLR_PRIMITIVE_NUM_VERTEXES].texture)
         {
-            texture = renderer->vertexes[prim_index*GLR_PRIMITIVE_NUM_VERTEXES].texture;
-            glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, texture->gl_texture);
-        }
-        else
-        {
-            glBindTexture(GL_TEXTURE_2D, 0);
+            bound_texture = renderer->vertexes[prim_index*GLR_PRIMITIVE_NUM_VERTEXES].texture;
+            glBindTexture(GL_TEXTURE_2D, bound_texture);
         }
 
         glBegin(GL_TRIANGLES);
@@ -99,10 +91,11 @@ glr_end(glr_renderer *renderer)
             glr_vertex *vertex = &renderer->vertexes[prim_index*GLR_PRIMITIVE_NUM_VERTEXES + index];
 
             glColor4f(vertex->r, vertex->g, vertex->b, vertex->a);
-            if(texture)
-            {
-                glTexCoord2f(vertex->u, 1.0f - vertex->v);
-            }
+#if 0
+            glTexCoord2f(vertex->u, 1.0f - vertex->v);
+#else
+            glTexCoord2f(vertex->u, vertex->v);
+#endif
 
             glVertex3f(vertex->x, vertex->y, vertex->z);
         }
@@ -112,91 +105,7 @@ glr_end(glr_renderer *renderer)
     glFlush();
 }
 
-static glr_texture *
-glr_texture_find_free_slot(glr_renderer *renderer)
-{
-    glr_texture *texture = 0;
-
-    if(renderer->textures_count < GLR_MAX_TEXTURES)
-    {
-        for(unsigned int texture_index = 0;
-            texture_index < GLR_MAX_TEXTURES;
-            ++texture_index)
-        {
-            if(!renderer->textures[texture_index].used)
-            {
-                texture = &renderer->textures[texture_index];
-                break;
-            }
-        }
-    }
-
-    return(texture);
-}
-
-glr_texture *
-glr_texture_create_from_raw_data(
-    glr_renderer *renderer,
-    void *data, int w, int h,
-    glr_pixel_format format)
-{
-    GLenum gl_format = GL_RGBA;
-    switch(format)
-    {
-        case GLR_PIXEL_FORMAT_RGBA: gl_format = GL_RGBA; break;
-
-        default:
-        {
-            // TODO: Invalid pixel format error
-            return(0);
-        } break;
-    }
-
-    glr_texture *texture = glr_texture_find_free_slot(renderer);
-    if(!texture)
-    {
-        return(0);
-    }
-
-#if 0
-    glr_raw_data_flip_on_y_axis(data, w, h);
-#endif
-
-    GLuint gl_texture;
-    glGenTextures(1, &gl_texture);
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, gl_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)w, (GLsizei)h, 0, gl_format, GL_UNSIGNED_BYTE, (const void *)data);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    texture->used = 1;
-    texture->to_destroy = 0;
-    texture->gl_texture = gl_texture;
-    renderer->textures_count += 1;
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glDisable(GL_TEXTURE_2D);
-
-#if 0
-    glr_raw_data_flip_on_y_axis(data, w, h);
-#endif
-
-    return(texture);
-}
-
-void
-glr_texture_destroy(glr_renderer *renderer, glr_texture *texture)
-{
-    if(!texture)
-    {
-        return;
-    }
-
-    texture->to_destroy = 1;
-}
-
-#if 0
+#if 1
 static void
 glr_raw_data_flip_on_y_axis(void *data, int width, int height)
 {
@@ -212,6 +121,59 @@ glr_raw_data_flip_on_y_axis(void *data, int width, int height)
     }
 }
 #endif
+
+glr_texture
+glr_texture_create_from_raw_data(
+    void *data, int w, int h,
+    glr_pixel_format format)
+{
+    if(!data)
+    {
+        return(0);
+    }
+
+    GLenum gl_format = GL_RGBA;
+    switch(format)
+    {
+        case GLR_PIXEL_FORMAT_RGBA: gl_format = GL_RGBA; break;
+
+        default:
+        {
+            // TODO: Invalid pixel format error
+            return(0);
+        } break;
+    }
+
+#if 1
+    glr_raw_data_flip_on_y_axis(data, w, h);
+#endif
+
+    GLuint gl_texture;
+    glGenTextures(1, &gl_texture);
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, gl_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)w, (GLsizei)h, 0, gl_format, GL_UNSIGNED_BYTE, (const void *)data);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glr_texture result = gl_texture;
+
+#if 1
+    glr_raw_data_flip_on_y_axis(data, w, h);
+#endif
+
+    return(result);
+}
+
+void
+glr_texture_destroy(glr_texture texture)
+{
+    if(texture != 0)
+    {
+        glDeleteTextures(1, &texture);
+    }
+}
 
 void
 glr_clear(glr_renderer *renderer, float r, float g, float b, float a)
