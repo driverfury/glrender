@@ -109,7 +109,7 @@ glr_end(glr_renderer *renderer)
 static void
 glr_raw_data_flip_on_y_axis(void *data, int width, int height)
 {
-    uint32_t *pixels = (u32 *)data;
+    uint32_t *pixels = (uint32_t *)data;
     for(int Y = 0; Y < height / 2; ++Y)
     {
         for(int X = 0; X < width; ++X)

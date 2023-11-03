@@ -165,8 +165,7 @@ main()
     }
 
     glr_init(&renderer, GLR_ALPHA_BLEND | GLR_DEPTH_TEST);
-    glr_texture *texture = glr_texture_create_from_raw_data(
-        &renderer,
+    glr_texture texture = glr_texture_create_from_raw_data(
         (void *)img_raw_data,
         IMG_WIDTH,
         IMG_HEIGHT,
