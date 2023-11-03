@@ -13,7 +13,7 @@ This is a very basic example:
 ```c
 #include "glrender.h"
 
-glr_renderer renderer;
+glr_renderer renderer = {0};
 
 #define IMG_WIDTH 2
 #define IMG_HEIGHT 2
@@ -35,8 +35,7 @@ main()
     create_window(800, 600);
 
     glr_init(&renderer, GLR_ALPHA_BLEND | GLR_DEPTH_TEST);
-    glr_texture *texture = glr_texture_create_from_raw_data(
-        &renderer,
+    glr_texture texture = glr_texture_create_from_raw_data(
         (void *)img_raw_data,
         IMG_WIDTH,
         IMG_HEIGHT,
@@ -58,6 +57,7 @@ main()
 
         /* draw the texture in the middle of the screen */
         glr_vertex quad1[4] = {
+            /*  x      y     z     R     G     B     A     u     v      tex  */
             { -0.5f, -0.5f, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, texture },
             {  0.5f, -0.5f, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, texture },
             {  0.5f,  0.5f, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, texture },
